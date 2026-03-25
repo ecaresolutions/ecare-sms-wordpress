@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * API Client.
  *
@@ -27,49 +27,43 @@ class Ecare_SMS_Pro_API {
 	 * @param array $payload Request payload.
 	 * @return array|WP_Error
 	 */
-	public function send_sms( $payload ) {
-		return $this->request( 'POST', '/sms/send', $payload );
+	public function send_sms( $payload, $debug = array() ) {
+		return $this->request( 'POST', '/sms/send', $payload, $debug );
 	}
 
 	/**
-	 * Send campaign API call.
+	 * Test API connectivity and token validity without sending SMS.
 	 *
-	 * @param array $payload Request payload.
 	 * @return array|WP_Error
 	 */
-	public function send_campaign( $payload ) {
-		return $this->request( 'POST', '/sms/campaign', $payload );
-	}
+	public function test_connection() {
+		$response = $this->request( 'POST', '/sms/send', array() );
 
-	/**
-	 * Check SMS status.
-	 *
-	 * @param string $uid SMS uid.
-	 * @return array|WP_Error
-	 */
-	public function get_sms_status( $uid ) {
-		$uid = sanitize_text_field( $uid );
-		if ( empty( $uid ) ) {
-			return new WP_Error( 'ecare_sms_uid_missing', __( 'UID is required.', 'ecare-sms-pro' ) );
+		if ( ! is_wp_error( $response ) ) {
+			return array(
+				'status'  => 'success',
+				'message' => __( 'Connection successful.', 'ecare-sms-pro' ),
+				'details' => $response,
+			);
 		}
 
-		return $this->request( 'GET', '/sms/' . rawurlencode( $uid ) );
-	}
+		$error_code = $response->get_error_code();
+		$error_data = $response->get_error_data();
+		$http_code  = ( is_array( $error_data ) && isset( $error_data['http_code'] ) ) ? (int) $error_data['http_code'] : 0;
 
-	/**
-	 * Fire a minimal test API call.
-	 *
-	 * @return array|WP_Error
-	 */
-	public function test_api() {
-		$payload = array(
-			'recipient' => '8801000000000',
-			'sender_id' => 'TEST',
-			'type'      => 'plain',
-			'message'   => 'Ecare SMS Pro API Test',
-		);
+		// 4xx validation responses from this probe request confirm API reachability.
+		if (
+			'ecare_sms_api_error' === $error_code &&
+			in_array( $http_code, array( 400, 404, 405, 422 ), true )
+		) {
+			return array(
+				'status'  => 'success',
+				'message' => __( 'Connection successful. API token appears valid.', 'ecare-sms-pro' ),
+				'details' => $error_data,
+			);
+		}
 
-		return $this->request( 'POST', '/sms/send', $payload );
+		return $response;
 	}
 
 	/**
@@ -80,15 +74,35 @@ class Ecare_SMS_Pro_API {
 	 * @param array  $body Request body.
 	 * @return array|WP_Error
 	 */
-	private function request( $method, $path, $body = array() ) {
+	private function request( $method, $path, $body = array(), $debug = array() ) {
+		$debug[] = array(
+			'stage' => 'api_request_prepare',
+			'path'  => $path,
+		);
+
 		$settings = get_option( ECARE_SMS_PRO_OPTION_KEY, array() );
 		$token    = $this->decrypt_token( isset( $settings['api_token'] ) ? $settings['api_token'] : '' );
 
 		if ( empty( $token ) ) {
-			return new WP_Error( 'ecare_sms_token_missing', __( 'API token is missing in plugin settings.', 'ecare-sms-pro' ) );
+			$debug[] = array(
+				'stage'   => 'api_token_missing',
+				'message' => 'API token is empty in settings.',
+			);
+
+			return new WP_Error(
+				'ecare_sms_token_missing',
+				__( 'API token is missing in plugin settings.', 'ecare-sms-pro' ),
+				array(
+					'debug' => $debug,
+				)
+			);
 		}
 
 		$url = trailingslashit( $this->base_url ) . ltrim( $path, '/' );
+		$debug[] = array(
+			'stage' => 'api_url_ready',
+			'url'   => $url,
+		);
 
 		$args = array(
 			'method'  => strtoupper( $method ),
@@ -105,16 +119,39 @@ class Ecare_SMS_Pro_API {
 		}
 
 		$args = apply_filters( 'ecare_sms_pro_api_request_args', $args, $method, $path, $body );
+		$debug[] = array(
+			'stage'   => 'api_request_dispatch',
+			'method'  => strtoupper( $method ),
+			'timeout' => isset( $args['timeout'] ) ? (int) $args['timeout'] : 30,
+		);
 
 		$response = wp_remote_request( $url, $args );
 
 		if ( is_wp_error( $response ) ) {
-			return $response;
+			$debug[] = array(
+				'stage'   => 'api_transport_error',
+				'code'    => $response->get_error_code(),
+				'message' => $response->get_error_message(),
+			);
+
+			return new WP_Error(
+				'ecare_sms_http_error',
+				$response->get_error_message(),
+				array(
+					'source' => 'wp_remote_request',
+					'debug'  => $debug,
+				)
+			);
 		}
 
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		$raw  = wp_remote_retrieve_body( $response );
 		$data = json_decode( $raw, true );
+		$debug[] = array(
+			'stage'     => 'api_response_received',
+			'http_code' => $code,
+			'raw_body'  => $raw,
+		);
 
 		if ( null === $data && ! empty( $raw ) ) {
 			$data = array(
@@ -122,14 +159,43 @@ class Ecare_SMS_Pro_API {
 				'message' => __( 'Invalid JSON response from API.', 'ecare-sms-pro' ),
 				'raw'     => $raw,
 			);
+			$debug[] = array(
+				'stage'   => 'api_json_decode_failed',
+				'message' => 'Response is not valid JSON.',
+			);
 		}
 
 		if ( $code < 200 || $code >= 300 ) {
 			$message = isset( $data['message'] ) ? (string) $data['message'] : __( 'API request failed.', 'ecare-sms-pro' );
-			return new WP_Error( 'ecare_sms_api_error', $message, array( 'http_code' => $code, 'response' => $data ) );
+			if ( false !== stripos( $message, 'Originator is not authorized' ) ) {
+				return new WP_Error(
+					'ecare_sms_sender_not_authorized',
+					__( 'Sender ID is not authorized. Please update Sender ID in Ecare SMS settings.', 'ecare-sms-pro' ),
+					array(
+						'http_code' => $code,
+						'response'  => $data,
+						'debug'     => $debug,
+					)
+				);
+			}
+
+			return new WP_Error(
+				'ecare_sms_api_error',
+				$message,
+				array(
+					'http_code' => $code,
+					'response'  => $data,
+					'debug'     => $debug,
+				)
+			);
 		}
 
-		return is_array( $data ) ? $data : array();
+		if ( ! is_array( $data ) ) {
+			$data = array();
+		}
+
+		$data['_debug'] = $debug;
+		return $data;
 	}
 
 	/**

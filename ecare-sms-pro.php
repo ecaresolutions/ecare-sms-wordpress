@@ -1,6 +1,6 @@
-﻿<?php
+<?php
 /**
- * Plugin Name: Ecare SMS Pro
+ * Plugin Name: Ecare SMS
  * Plugin URI: https://ecarehost.com
  * Description: Production-ready SMS automation plugin for WordPress and WooCommerce using Ecare SMS API.
  * Version: 1.0.0
@@ -23,12 +23,12 @@ define( 'ECARE_SMS_PRO_URL', plugin_dir_url( __FILE__ ) );
 define( 'ECARE_SMS_PRO_OPTION_KEY', 'ecare_sms_pro_settings' );
 define( 'ECARE_SMS_PRO_TABLE_LOGS', 'ecare_sms_pro_logs' );
 
-require_once ECARE_SMS_PRO_PATH . 'includes/class-ecare-sms-pro-api.php';
-require_once ECARE_SMS_PRO_PATH . 'includes/class-ecare-sms-pro-logs.php';
-require_once ECARE_SMS_PRO_PATH . 'includes/class-ecare-sms-pro-sms.php';
-require_once ECARE_SMS_PRO_PATH . 'includes/class-ecare-sms-pro-woocommerce.php';
-require_once ECARE_SMS_PRO_PATH . 'admin/class-ecare-sms-pro-admin-menu.php';
-require_once ECARE_SMS_PRO_PATH . 'admin/class-ecare-sms-pro-admin-pages.php';
+require_once ECARE_SMS_PRO_PATH . 'includes/class-api.php';
+require_once ECARE_SMS_PRO_PATH . 'includes/class-logs.php';
+require_once ECARE_SMS_PRO_PATH . 'includes/class-sms.php';
+require_once ECARE_SMS_PRO_PATH . 'includes/class-woocommerce.php';
+require_once ECARE_SMS_PRO_PATH . 'admin/class-admin-menu.php';
+require_once ECARE_SMS_PRO_PATH . 'admin/class-admin-pages.php';
 
 /**
  * Main plugin bootstrap.
@@ -76,7 +76,7 @@ class Ecare_SMS_Pro {
 			$this->admin_pages = new Ecare_SMS_Pro_Admin_Pages( $this->api, $this->sms, $this->logs, $admin_menu );
 		}
 
-		new Ecare_SMS_Pro_WooCommerce( $this->sms );
+		// Keep the plugin in manual test mode by default for easier debugging.
 
 		add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
 	}
@@ -99,15 +99,11 @@ class Ecare_SMS_Pro {
 		Ecare_SMS_Pro_Logs::create_table();
 
 		$defaults = array(
-			'api_token'                   => '',
-			'default_sender_id'           => '',
-			'sms_type'                    => 'plain',
-			'enable_logs'                 => 1,
-			'wc_order_placed_enabled'     => 1,
-			'wc_status_changed_enabled'   => 1,
-			'wc_order_placed_template'    => 'Hi {customer_name}, your order #{order_id} was placed successfully. Total: {total}',
-			'wc_status_changed_template'  => 'Hi {customer_name}, your order #{order_id} status changed. Total: {total}',
-			'dark_mode'                   => 0,
+			'api_token'         => '',
+			'default_sender_id' => '',
+			'sms_type'          => 'plain',
+			'enable_logs'       => 1,
+			'enable_debug'      => 1,
 		);
 
 		$current = get_option( ECARE_SMS_PRO_OPTION_KEY, array() );

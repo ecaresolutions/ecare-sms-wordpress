@@ -1,0 +1,34 @@
+.ecare-sms-pro-hidden {
+  display: none;
+}
+
+#ecare-sms-pro-response {
+  margin-top: 16px;
+}
+
+#ecare-sms-pro-debug {
+  margin-top: 16px;
+}
+
+#ecare-sms-pro-response pre,
+#ecare-sms-pro-debug pre {
+  background: #fff;
+  border: 1px solid #ccd0d4;
+  padding: 12px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.ecare-sms-pro-secret-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ecare-sms-pro-toggle-secret .dashicons {
+  margin-top: 3px;
+}
+
+#ecare-sms-pro-test-connection-notice {
+  margin-top: 12px;
+}

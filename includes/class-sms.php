@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * SMS service.
  *
@@ -47,22 +47,57 @@ class Ecare_SMS_Pro_SMS {
 	 */
 	public function send_sms( $args ) {
 		$settings  = get_option( ECARE_SMS_PRO_OPTION_KEY, array() );
+		$debug     = array();
+		$debug[]   = array(
+			'stage'   => 'sms_send_start',
+			'payload' => array(
+				'recipient' => isset( $args['recipient'] ) ? (string) $args['recipient'] : '',
+				'sender_id' => isset( $args['sender_id'] ) ? (string) $args['sender_id'] : '',
+				'has_msg'   => ! empty( $args['message'] ),
+			),
+		);
 		$recipients = $this->normalize_recipient_list( isset( $args['recipient'] ) ? $args['recipient'] : '' );
 		$message    = isset( $args['message'] ) ? wp_strip_all_tags( $args['message'] ) : '';
 		$type       = ! empty( $args['type'] ) ? sanitize_text_field( $args['type'] ) : ( isset( $settings['sms_type'] ) ? sanitize_text_field( $settings['sms_type'] ) : 'plain' );
-		$sender_id  = ! empty( $args['sender_id'] ) ? sanitize_text_field( $args['sender_id'] ) : ( isset( $settings['default_sender_id'] ) ? sanitize_text_field( $settings['default_sender_id'] ) : '' );
+		$provided_sender = isset( $args['sender_id'] ) ? sanitize_text_field( $args['sender_id'] ) : '';
+		$default_sender  = isset( $settings['default_sender_id'] ) ? sanitize_text_field( $settings['default_sender_id'] ) : '';
+		$sender_id       = $this->resolve_sender_id( $provided_sender, $default_sender );
 		$schedule   = isset( $args['schedule_time'] ) ? sanitize_text_field( $args['schedule_time'] ) : '';
+		$debug[]    = array(
+			'stage'            => 'sms_input_normalized',
+			'recipient_count'  => count( $recipients ),
+			'resolved_sender'  => $sender_id,
+			'schedule_enabled' => ! empty( $schedule ),
+		);
 
 		if ( empty( $recipients ) ) {
-			return new WP_Error( 'ecare_sms_recipients_missing', __( 'At least one valid recipient is required.', 'ecare-sms-pro' ) );
+			$error = new WP_Error(
+				'ecare_sms_recipients_missing',
+				__( 'At least one valid recipient is required.', 'ecare-sms-pro' ),
+				array( 'debug' => $debug )
+			);
+			$this->write_debug_log( array(), $error );
+			return $error;
 		}
 
 		if ( empty( $sender_id ) ) {
-			return new WP_Error( 'ecare_sms_sender_missing', __( 'Sender ID is required.', 'ecare-sms-pro' ) );
+			$error = new WP_Error(
+				'ecare_sms_sender_missing',
+				__( 'Sender ID is required. Please set a valid default Sender ID in settings.', 'ecare-sms-pro' ),
+				array( 'debug' => $debug )
+			);
+			$this->write_debug_log( array(), $error );
+			return $error;
 		}
 
 		if ( empty( $message ) ) {
-			return new WP_Error( 'ecare_sms_message_missing', __( 'Message cannot be empty.', 'ecare-sms-pro' ) );
+			$error = new WP_Error(
+				'ecare_sms_message_missing',
+				__( 'Message cannot be empty.', 'ecare-sms-pro' ),
+				array( 'debug' => $debug )
+			);
+			$this->write_debug_log( array(), $error );
+			return $error;
 		}
 
 		$payload = array(
@@ -74,74 +109,41 @@ class Ecare_SMS_Pro_SMS {
 
 		if ( ! empty( $schedule ) ) {
 			if ( ! $this->is_valid_schedule( $schedule ) ) {
-				return new WP_Error( 'ecare_sms_invalid_schedule', __( 'Schedule time format must be YYYY-MM-DD HH:MM.', 'ecare-sms-pro' ) );
+				$error = new WP_Error(
+					'ecare_sms_invalid_schedule',
+					__( 'Schedule time format must be YYYY-MM-DD HH:MM.', 'ecare-sms-pro' ),
+					array( 'debug' => $debug )
+				);
+				$this->write_debug_log( $payload, $error );
+				return $error;
 			}
 			$payload['schedule_time'] = $schedule;
 		}
 
 		$payload  = apply_filters( 'ecare_sms_pro_send_payload', $payload, $args );
-		$response = $this->api->send_sms( $payload );
+		$debug[]  = array(
+			'stage'   => 'sms_payload_ready',
+			'payload' => $payload,
+		);
+		$response = $this->api->send_sms( $payload, $debug );
+
+		if ( is_wp_error( $response ) ) {
+			$data = $response->get_error_data();
+			if ( ! is_array( $data ) ) {
+				$data = array();
+			}
+			if ( empty( $data['debug'] ) || ! is_array( $data['debug'] ) ) {
+				$data['debug'] = $debug;
+			}
+			$response->add_data( $data );
+		}
 
 		$this->log_result( $payload['recipient'], $message, $response );
+		$this->write_debug_log( $payload, $response );
 
 		do_action( 'ecare_sms_pro_sms_sent', $payload, $response );
 
 		return $response;
-	}
-
-	/**
-	 * Send campaign SMS.
-	 *
-	 * @param array $args Campaign args.
-	 * @return array|WP_Error
-	 */
-	public function send_campaign( $args ) {
-		$settings        = get_option( ECARE_SMS_PRO_OPTION_KEY, array() );
-		$contact_list_id = $this->normalize_recipient_list( isset( $args['contact_list_id'] ) ? $args['contact_list_id'] : '' );
-		$message         = isset( $args['message'] ) ? wp_strip_all_tags( $args['message'] ) : '';
-		$type            = ! empty( $args['type'] ) ? sanitize_text_field( $args['type'] ) : ( isset( $settings['sms_type'] ) ? sanitize_text_field( $settings['sms_type'] ) : 'plain' );
-		$sender_id       = ! empty( $args['sender_id'] ) ? sanitize_text_field( $args['sender_id'] ) : ( isset( $settings['default_sender_id'] ) ? sanitize_text_field( $settings['default_sender_id'] ) : '' );
-		$schedule        = isset( $args['schedule_time'] ) ? sanitize_text_field( $args['schedule_time'] ) : '';
-
-		if ( empty( $contact_list_id ) ) {
-			return new WP_Error( 'ecare_sms_contact_list_missing', __( 'Contact list ID is required.', 'ecare-sms-pro' ) );
-		}
-
-		if ( empty( $sender_id ) || empty( $message ) ) {
-			return new WP_Error( 'ecare_sms_campaign_missing', __( 'Sender ID and message are required for campaign.', 'ecare-sms-pro' ) );
-		}
-
-		$payload = array(
-			'contact_list_id' => implode( ',', $contact_list_id ),
-			'sender_id'       => $sender_id,
-			'type'            => $type,
-			'message'         => $message,
-		);
-
-		if ( ! empty( $schedule ) ) {
-			if ( ! $this->is_valid_schedule( $schedule ) ) {
-				return new WP_Error( 'ecare_sms_invalid_schedule', __( 'Schedule time format must be YYYY-MM-DD HH:MM.', 'ecare-sms-pro' ) );
-			}
-			$payload['schedule_time'] = $schedule;
-		}
-
-		$payload  = apply_filters( 'ecare_sms_pro_campaign_payload', $payload, $args );
-		$response = $this->api->send_campaign( $payload );
-
-		$this->log_result( $payload['contact_list_id'], $message, $response );
-		do_action( 'ecare_sms_pro_campaign_sent', $payload, $response );
-
-		return $response;
-	}
-
-	/**
-	 * Check SMS status by UID.
-	 *
-	 * @param string $uid UID.
-	 * @return array|WP_Error
-	 */
-	public function check_status( $uid ) {
-		return $this->api->get_sms_status( $uid );
 	}
 
 	/**
@@ -252,6 +254,54 @@ class Ecare_SMS_Pro_SMS {
 	}
 
 	/**
+	 * Resolve sender ID with fallback.
+	 *
+	 * @param string $provided_sender Sender from request.
+	 * @param string $default_sender Sender from settings.
+	 * @return string
+	 */
+	private function resolve_sender_id( $provided_sender, $default_sender ) {
+		$provided_sender = $this->sanitize_sender_id( $provided_sender );
+		$default_sender  = $this->sanitize_sender_id( $default_sender );
+
+		if ( $this->is_valid_sender_id( $provided_sender ) ) {
+			return $provided_sender;
+		}
+
+		if ( $this->is_valid_sender_id( $default_sender ) ) {
+			return $default_sender;
+		}
+
+		return '';
+	}
+
+	/**
+	 * Sanitize sender ID.
+	 *
+	 * @param string $sender_id Sender ID.
+	 * @return string
+	 */
+	private function sanitize_sender_id( $sender_id ) {
+		$sender_id = (string) $sender_id;
+		$sender_id = trim( $sender_id );
+		return preg_replace( '/[^A-Za-z0-9+]/', '', $sender_id );
+	}
+
+	/**
+	 * Validate sender ID format.
+	 *
+	 * @param string $sender_id Sender ID.
+	 * @return bool
+	 */
+	private function is_valid_sender_id( $sender_id ) {
+		if ( '' === $sender_id ) {
+			return false;
+		}
+
+		return 1 === preg_match( '/^[A-Za-z0-9+]{1,16}$/', $sender_id );
+	}
+
+	/**
 	 * Save SMS attempt in logs.
 	 *
 	 * @param string         $recipient Recipient(s).
@@ -312,5 +362,49 @@ class Ecare_SMS_Pro_SMS {
 		}
 
 		return '';
+	}
+
+	/**
+	 * Write debug information to file.
+	 *
+	 * @param array          $payload Request payload.
+	 * @param array|WP_Error $response API response.
+	 * @return void
+	 */
+	private function write_debug_log( $payload, $response ) {
+		$settings = get_option( ECARE_SMS_PRO_OPTION_KEY, array() );
+		if ( empty( $settings['enable_debug'] ) ) {
+			return;
+		}
+
+		$upload_dir = wp_upload_dir();
+		$base_dir   = isset( $upload_dir['basedir'] ) ? $upload_dir['basedir'] : '';
+		if ( empty( $base_dir ) ) {
+			return;
+		}
+
+		$dir = trailingslashit( $base_dir ) . 'ecare-sms-pro';
+		wp_mkdir_p( $dir );
+
+		$entry = array(
+			'time'    => current_time( 'mysql' ),
+			'payload' => $payload,
+		);
+
+		if ( is_wp_error( $response ) ) {
+			$entry['result'] = array(
+				'type'    => 'error',
+				'code'    => $response->get_error_code(),
+				'message' => $response->get_error_message(),
+				'data'    => $response->get_error_data(),
+			);
+		} else {
+			$entry['result'] = array(
+				'type' => 'success',
+				'data' => $response,
+			);
+		}
+
+		error_log( wp_json_encode( $entry ) . PHP_EOL, 3, trailingslashit( $dir ) . 'debug.log' );
 	}
 }
