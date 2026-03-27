@@ -152,7 +152,7 @@ class Ecare_SMS_Pro_Admin_Pages {
 		);
 		$today_total    = isset( $today_result['total'] ) ? (int) $today_result['total'] : 0;
 		$success_rate   = isset( $stats['success_rate'] ) ? (float) $stats['success_rate'] : 0;
-		$is_api_ready   = ! empty( $settings['api_token'] );
+		$is_api_ready   = ! empty( $settings['api_token'] ) && ! empty( $default_sender );
 
 		echo '<div class="wrap ecare-sms-pro-shell ' . esc_attr( $lang_class ) . '">';
 		echo '<h1>' . esc_html__( 'Ecare SMS Gateway', 'ecare-sms-pro' ) . '</h1>';
@@ -169,10 +169,16 @@ class Ecare_SMS_Pro_Admin_Pages {
 		echo '</div>';
 		echo '</section>';
 
-		echo '<div class="ecare-sms-pro-cta-box">';
-		echo '<p><strong>' . esc_html__( 'No ecaresms.com account yet?', 'ecare-sms-pro' ) . '</strong> ' . esc_html__( 'Create an account to start sending SMS from this plugin.', 'ecare-sms-pro' ) . '</p>';
-		echo '<a class="ecare-btn ecare-btn-accent" href="' . esc_url( 'https://ecaresms.com' ) . '" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Create Account', 'ecare-sms-pro' ) . '</a>';
+		echo '<div class="ecare-sms-pro-support-box">';
+		echo '<p><strong>' . esc_html__( 'Need help?', 'ecare-sms-pro' ) . '</strong> ' . esc_html__( 'WhatsApp Support:', 'ecare-sms-pro' ) . ' <a href="' . esc_url( 'https://wa.me/8801811699722' ) . '" target="_blank" rel="noopener noreferrer">01811699722</a></p>';
 		echo '</div>';
+
+		if ( ! $is_api_ready ) {
+			echo '<div class="ecare-sms-pro-cta-box">';
+			echo '<p><strong>' . esc_html__( 'No ecaresms.com account yet?', 'ecare-sms-pro' ) . '</strong> ' . esc_html__( 'Create an account to start sending SMS from this plugin.', 'ecare-sms-pro' ) . '</p>';
+			echo '<a class="ecare-btn ecare-btn-accent" href="' . esc_url( 'https://ecaresms.com' ) . '" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Create Account', 'ecare-sms-pro' ) . '</a>';
+			echo '</div>';
+		}
 
 		echo '<div class="ecare-sms-pro-stats-grid">';
 		echo '<div class="ecare-sms-pro-stat-card ecare-sms-pro-stat-blue"><p>' . esc_html__( 'Sender ID', 'ecare-sms-pro' ) . '</p><strong>' . esc_html( '' !== $default_sender ? $default_sender : __( 'Not Set', 'ecare-sms-pro' ) ) . '</strong></div>';
@@ -267,6 +273,26 @@ class Ecare_SMS_Pro_Admin_Pages {
 				'date_to'   => $date_to,
 			)
 		);
+		$success_result = $this->logs->get_logs(
+			array(
+				'page'      => 1,
+				'per_page'  => 1,
+				'status'    => 'success',
+				'date_from' => $date_from,
+				'date_to'   => $date_to,
+			)
+		);
+		$failed_result  = $this->logs->get_logs(
+			array(
+				'page'      => 1,
+				'per_page'  => 1,
+				'status'    => 'failed',
+				'date_from' => $date_from,
+				'date_to'   => $date_to,
+			)
+		);
+		$sent_count     = isset( $success_result['total'] ) ? (int) $success_result['total'] : 0;
+		$failed_count   = isset( $failed_result['total'] ) ? (int) $failed_result['total'] : 0;
 
 		echo '<div class="wrap">';
 		echo '<h1>' . esc_html__( 'SMS Logs', 'ecare-sms-pro' ) . '</h1>';
@@ -282,19 +308,26 @@ class Ecare_SMS_Pro_Admin_Pages {
 		echo '</p>';
 		echo '</form>';
 
+		echo '<div class="ecare-sms-pro-log-indicators">';
+		echo '<span class="ecare-log-chip ecare-log-chip-success"><span class="dot"></span>' . esc_html__( 'Sent', 'ecare-sms-pro' ) . ': ' . esc_html( number_format_i18n( $sent_count ) ) . '</span>';
+		echo '<span class="ecare-log-chip ecare-log-chip-failed"><span class="dot"></span>' . esc_html__( 'Failed', 'ecare-sms-pro' ) . ': ' . esc_html( number_format_i18n( $failed_count ) ) . '</span>';
+		echo '</div>';
+
 		echo '<table class="widefat striped">';
-		echo '<thead><tr><th>' . esc_html__( 'ID', 'ecare-sms-pro' ) . '</th><th>' . esc_html__( 'Recipient', 'ecare-sms-pro' ) . '</th><th>' . esc_html__( 'Message', 'ecare-sms-pro' ) . '</th><th>' . esc_html__( 'Status', 'ecare-sms-pro' ) . '</th><th>' . esc_html__( 'UID', 'ecare-sms-pro' ) . '</th><th>' . esc_html__( 'Date', 'ecare-sms-pro' ) . '</th><th>' . esc_html__( 'Response', 'ecare-sms-pro' ) . '</th></tr></thead><tbody>';
+		echo '<thead><tr><th>' . esc_html__( 'Recipient', 'ecare-sms-pro' ) . '</th><th>' . esc_html__( 'Message', 'ecare-sms-pro' ) . '</th><th>' . esc_html__( 'Status', 'ecare-sms-pro' ) . '</th><th>' . esc_html__( 'Date', 'ecare-sms-pro' ) . '</th><th>' . esc_html__( 'Response', 'ecare-sms-pro' ) . '</th></tr></thead><tbody>';
 
 		if ( empty( $result['rows'] ) ) {
-			echo '<tr><td colspan="7">' . esc_html__( 'No logs found.', 'ecare-sms-pro' ) . '</td></tr>';
+			echo '<tr><td colspan="5">' . esc_html__( 'No logs found.', 'ecare-sms-pro' ) . '</td></tr>';
 		} else {
 			foreach ( $result['rows'] as $row ) {
+				$row_status   = isset( $row['status'] ) ? strtolower( (string) $row['status'] ) : '';
+				$status_class = ( 'success' === $row_status ) ? 'ecare-status-badge success' : 'ecare-status-badge failed';
+				$status_label = ( 'success' === $row_status ) ? __( 'Sent', 'ecare-sms-pro' ) : __( 'Failed', 'ecare-sms-pro' );
+
 				echo '<tr>';
-				echo '<td>' . esc_html( $row['id'] ) . '</td>';
 				echo '<td>' . esc_html( $row['recipient'] ) . '</td>';
-				echo '<td>' . esc_html( wp_trim_words( $row['message'], 14, '...' ) ) . '</td>';
-				echo '<td>' . esc_html( ucfirst( $row['status'] ) ) . '</td>';
-				echo '<td>' . esc_html( $row['uid'] ) . '</td>';
+				echo '<td>' . esc_html( wp_trim_words( $row['message'], 12, '...' ) ) . '</td>';
+				echo '<td><span class="' . esc_attr( $status_class ) . '">' . esc_html( $status_label ) . '</span></td>';
 				echo '<td>' . esc_html( $row['created_at'] ) . '</td>';
 				echo '<td><details><summary>' . esc_html__( 'View', 'ecare-sms-pro' ) . '</summary><pre>' . esc_html( wp_json_encode( $this->logs->decode_response( $row['api_response'] ), JSON_PRETTY_PRINT ) ) . '</pre></details></td>';
 				echo '</tr>';
