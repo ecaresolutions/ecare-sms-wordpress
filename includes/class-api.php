@@ -67,6 +67,92 @@ class Ecare_SMS_Pro_API {
 	}
 
 	/**
+	 * Fetch SMS balance from API.
+	 *
+	 * @return array|WP_Error
+	 */
+	public function get_balance() {
+		$paths = apply_filters(
+			'ecare_sms_pro_balance_paths',
+			array(
+				'/sms/balance',
+				'/balance',
+				'/account/balance',
+				'/user/balance',
+				'/wallet/balance',
+			)
+		);
+
+		$last_error = null;
+
+		foreach ( $paths as $path ) {
+			$response = $this->request( 'GET', $path );
+			if ( is_wp_error( $response ) ) {
+				$error_data = $response->get_error_data();
+				$http_code  = ( is_array( $error_data ) && isset( $error_data['http_code'] ) ) ? (int) $error_data['http_code'] : 0;
+
+				// Try next endpoint for common "not found/method not allowed" cases.
+				if ( in_array( $http_code, array( 404, 405 ), true ) ) {
+					$last_error = $response;
+					continue;
+				}
+
+				return $response;
+			}
+
+			$balance = $this->extract_balance_value( $response );
+			if ( null === $balance ) {
+				$last_error = new WP_Error(
+					'ecare_sms_balance_not_found',
+					__( 'Balance value was not found in API response.', 'ecare-sms-pro' ),
+					array(
+						'path'     => $path,
+						'response' => $response,
+					)
+				);
+				continue;
+			}
+
+			return array(
+				'status'   => 'success',
+				'path'     => $path,
+				'balance'  => $balance,
+				'response' => $response,
+			);
+		}
+
+		if ( is_wp_error( $last_error ) ) {
+			return $last_error;
+		}
+
+		return new WP_Error(
+			'ecare_sms_balance_failed',
+			__( 'Could not fetch SMS balance from API.', 'ecare-sms-pro' )
+		);
+	}
+
+	/**
+	 * Extract possible balance value from response array.
+	 *
+	 * @param array $response API response array.
+	 * @return string|null
+	 */
+	private function extract_balance_value( $response ) {
+		if ( ! is_array( $response ) ) {
+			return null;
+		}
+
+		$candidates = array( 'balance', 'sms_balance', 'credit', 'credits', 'remaining', 'amount' );
+		foreach ( $candidates as $key ) {
+			if ( isset( $response[ $key ] ) && '' !== (string) $response[ $key ] ) {
+				return (string) $response[ $key ];
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Generic request wrapper.
 	 *
 	 * @param string $method HTTP method.

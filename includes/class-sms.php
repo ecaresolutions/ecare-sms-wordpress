@@ -206,14 +206,43 @@ class Ecare_SMS_Pro_SMS {
 	 * @return string
 	 */
 	public function parse_template( $template, $order, $status = '' ) {
+		$order_date = '';
+		if ( $order && $order->get_date_created() ) {
+			$order_date = $order->get_date_created()->date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) );
+		}
+
 		$map = array(
+			'{site_name}'      => get_bloginfo( 'name' ),
 			'{order_id}'      => $order ? $order->get_id() : '',
+			'{order_number}'  => $order ? $order->get_order_number() : '',
 			'{customer_name}' => $order ? trim( $order->get_billing_first_name() . ' ' . $order->get_billing_last_name() ) : '',
+			'{first_name}'    => $order ? $order->get_billing_first_name() : '',
+			'{last_name}'     => $order ? $order->get_billing_last_name() : '',
+			'{phone}'         => $order ? $order->get_billing_phone() : '',
 			'{total}'         => $order ? $order->get_formatted_order_total() : '',
 			'{order_status}'  => $status,
+			'{order_date}'    => $order_date,
 		);
 
-		return strtr( (string) $template, $map );
+		return $this->parse_dynamic_template( $template, $map );
+	}
+
+	/**
+	 * Parse dynamic placeholders in a template.
+	 *
+	 * @param string $template Template string.
+	 * @param array  $map Placeholder map.
+	 * @return string
+	 */
+	public function parse_dynamic_template( $template, $map = array() ) {
+		$template = (string) $template;
+		$clean    = array();
+
+		foreach ( (array) $map as $key => $value ) {
+			$clean[ (string) $key ] = is_scalar( $value ) ? (string) $value : '';
+		}
+
+		return strtr( $template, $clean );
 	}
 
 	/**

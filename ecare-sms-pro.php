@@ -64,12 +64,20 @@ class Ecare_SMS_Pro {
 	private $admin_pages;
 
 	/**
+	 * WooCommerce instance.
+	 *
+	 * @var Ecare_SMS_Pro_WooCommerce
+	 */
+	private $woocommerce;
+
+	/**
 	 * Init plugin.
 	 */
 	public function __construct() {
 		$this->api  = new Ecare_SMS_Pro_API();
 		$this->logs = new Ecare_SMS_Pro_Logs();
 		$this->sms  = new Ecare_SMS_Pro_SMS( $this->api, $this->logs );
+		$this->woocommerce = new Ecare_SMS_Pro_WooCommerce( $this->sms );
 
 		if ( is_admin() ) {
 			$admin_menu        = new Ecare_SMS_Pro_Admin_Menu();
@@ -104,6 +112,11 @@ class Ecare_SMS_Pro {
 			'sms_type'          => 'plain',
 			'enable_logs'       => 1,
 			'enable_debug'      => 1,
+			'wc_order_placed_enabled'    => 0,
+			'wc_order_placed_template'   => __( 'Hi {customer_name}, your order #{order_id} has been placed successfully. Total: {total}.', 'ecare-sms-pro' ),
+			'wc_status_changed_enabled'  => 0,
+			'wc_status_changed_template' => __( 'Hi {customer_name}, your order #{order_id} is now {order_status}.', 'ecare-sms-pro' ),
+			'wc_status_targets'          => array( 'processing', 'completed' ),
 		);
 
 		$current = get_option( ECARE_SMS_PRO_OPTION_KEY, array() );

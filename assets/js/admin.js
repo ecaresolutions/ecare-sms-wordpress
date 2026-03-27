@@ -71,6 +71,66 @@
       });
   });
 
+  $(document).on('submit', '#ecare-bulk-sms-form', function (e) {
+    e.preventDefault();
+
+    var $form = $(this);
+    var $submit = $('#ecare-bulk-send-submit');
+    var $spinner = $('#ecare-bulk-send-spinner');
+    var manualNumbers = $.trim($('#ecare_bulk_numbers').val());
+    var message = $.trim($('#ecare_bulk_message').val());
+    var fileInput = $('#ecare_bulk_file')[0];
+    var hasFile = !!(fileInput && fileInput.files && fileInput.files.length);
+
+    if (!manualNumbers && !hasFile) {
+      showNotice('error', 'Add manual numbers or upload a file.');
+      return;
+    }
+
+    if (!message) {
+      showNotice('error', 'Message is required for bulk send.');
+      return;
+    }
+
+    var formData = new FormData($form[0]);
+    formData.append('nonce', EcareSMSPro.nonce);
+
+    $submit.prop('disabled', true).val(EcareSMSPro.bulkSendingText || 'Sending Bulk SMS...');
+    $spinner.addClass('is-active');
+
+    $.ajax({
+      url: EcareSMSPro.ajaxUrl,
+      type: 'POST',
+      data: formData,
+      processData: false,
+      contentType: false
+    })
+      .done(function (res) {
+        if (res && res.success) {
+          showNotice('success', (res.data && res.data.message) ? res.data.message : 'Bulk SMS completed.');
+          if (res.data && res.data.summary) {
+            $('#ecare-sms-pro-bulk-summary')
+              .removeClass('ecare-sms-pro-hidden')
+              .find('pre')
+              .text(JSON.stringify(res.data.summary, null, 2));
+          }
+        } else {
+          showNotice('error', 'Unexpected response.');
+        }
+      })
+      .fail(function (xhr) {
+        var msg = 'Bulk request failed.';
+        if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+          msg = xhr.responseJSON.data.message;
+        }
+        showNotice('error', msg);
+      })
+      .always(function () {
+        $submit.prop('disabled', false).val(EcareSMSPro.bulkButtonText || 'Send Bulk SMS');
+        $spinner.removeClass('is-active');
+      });
+  });
+
   $(document).on('click', '.ecare-sms-pro-toggle-secret', function () {
     var $btn = $(this);
     var targetId = $btn.data('target');
@@ -136,6 +196,39 @@
       })
       .always(function () {
         $btn.prop('disabled', false).text(EcareSMSPro.testConnectionButtonText || 'Test Connection');
+        $spinner.removeClass('is-active');
+      });
+  });
+
+  $(document).on('click', '#ecare-check-balance', function (e) {
+    e.preventDefault();
+
+    var $btn = $(this);
+    var $spinner = $('#ecare-check-balance-spinner');
+
+    $btn.prop('disabled', true).text(EcareSMSPro.balanceChecking || 'Checking Balance...');
+    $spinner.addClass('is-active');
+
+    $.post(EcareSMSPro.ajaxUrl, $.param({
+      action: 'ecare_sms_pro_check_balance',
+      nonce: EcareSMSPro.nonce
+    }))
+      .done(function (res) {
+        if (res && res.success) {
+          showNotice('success', (res.data && res.data.message) ? res.data.message : 'Balance check successful.', '#ecare-sms-pro-balance-notice');
+        } else {
+          showNotice('error', 'Unexpected response.', '#ecare-sms-pro-balance-notice');
+        }
+      })
+      .fail(function (xhr) {
+        var msg = 'Balance check failed.';
+        if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+          msg = xhr.responseJSON.data.message;
+        }
+        showNotice('error', msg, '#ecare-sms-pro-balance-notice');
+      })
+      .always(function () {
+        $btn.prop('disabled', false).text(EcareSMSPro.balanceButtonText || 'Check SMS Balance');
         $spinner.removeClass('is-active');
       });
   });

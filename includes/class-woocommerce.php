@@ -52,6 +52,10 @@ class Ecare_SMS_Pro_WooCommerce {
 			return;
 		}
 
+		if ( $order->get_meta( '_ecare_sms_order_placed_sent', true ) ) {
+			return;
+		}
+
 		$phone = $order->get_billing_phone();
 		if ( empty( $phone ) ) {
 			return;
@@ -66,6 +70,9 @@ class Ecare_SMS_Pro_WooCommerce {
 				'message'   => $message,
 			)
 		);
+
+		$order->update_meta_data( '_ecare_sms_order_placed_sent', current_time( 'mysql' ) );
+		$order->save_meta_data();
 	}
 
 	/**
@@ -80,6 +87,11 @@ class Ecare_SMS_Pro_WooCommerce {
 	public function handle_status_changed( $order_id, $old_status, $new_status, $order ) {
 		$settings = get_option( ECARE_SMS_PRO_OPTION_KEY, array() );
 		if ( empty( $settings['wc_status_changed_enabled'] ) ) {
+			return;
+		}
+
+		$target_statuses = isset( $settings['wc_status_targets'] ) && is_array( $settings['wc_status_targets'] ) ? array_map( 'sanitize_key', $settings['wc_status_targets'] ) : array();
+		if ( ! empty( $target_statuses ) && ! in_array( sanitize_key( $new_status ), $target_statuses, true ) ) {
 			return;
 		}
 
