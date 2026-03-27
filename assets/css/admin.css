@@ -364,6 +364,51 @@
   border: 1px solid #fecaca;
 }
 
+.ecare-template-box {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid #dbe3f1;
+  border-radius: 10px;
+  background: #f9fbff;
+}
+
+.ecare-template-box select {
+  min-width: 280px;
+}
+
+.ecare-placeholder-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ecare-placeholder-wrap .button {
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 1px 8px;
+}
+
+.ecare-status-template-box {
+  margin-top: 14px;
+}
+
+.ecare-status-template-row {
+  padding: 10px 0;
+  border-top: 1px dashed #d3dcec;
+}
+
+.ecare-status-template-row:first-of-type {
+  border-top: 0;
+  padding-top: 4px;
+}
+
+.ecare-status-template-row label {
+  display: block;
+  margin-bottom: 6px;
+}
+
 @media (max-width: 782px) {
   .ecare-sms-pro-hero-left h2 {
     font-size: 20px;

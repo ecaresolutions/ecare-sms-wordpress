@@ -109,6 +109,11 @@ class Ecare_SMS_Pro_WooCommerce {
 		}
 
 		$template = isset( $settings['wc_status_changed_template'] ) ? $settings['wc_status_changed_template'] : '';
+		$status_templates = isset( $settings['wc_status_templates'] ) && is_array( $settings['wc_status_templates'] ) ? $settings['wc_status_templates'] : array();
+		$status_key = sanitize_key( $new_status );
+		if ( isset( $status_templates[ $status_key ] ) && '' !== trim( (string) $status_templates[ $status_key ] ) ) {
+			$template = (string) $status_templates[ $status_key ];
+		}
 		$message  = $this->sms->parse_template( $template, $order, wc_get_order_status_name( $new_status ) );
 
 		$this->sms->send_sms(

@@ -23,6 +23,7 @@ class Ecare_SMS_Pro_Admin_Menu {
 		'send'      => 'ecare-sms-pro-send',
 		'logs'      => 'ecare-sms-pro-logs',
 		'settings'  => 'ecare-sms-pro-settings',
+		'templates' => 'ecare-sms-pro-templates',
 	);
 
 	/**

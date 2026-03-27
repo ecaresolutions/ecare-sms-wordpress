@@ -232,4 +232,45 @@
         $spinner.removeClass('is-active');
       });
   });
+
+  $(document).on('change', '.ecare-template-preset', function () {
+    var $select = $(this);
+    var targetId = $select.data('target');
+    var selectedValue = $select.val();
+    if (!targetId || !selectedValue) {
+      return;
+    }
+
+    var $target = $('#' + targetId);
+    if (!$target.length) {
+      return;
+    }
+    $target.val(selectedValue).trigger('change');
+  });
+
+  $(document).on('click', '.ecare-placeholder-btn', function () {
+    var $btn = $(this);
+    var targetId = $btn.data('target');
+    var token = $btn.data('token');
+    if (!targetId || !token) {
+      return;
+    }
+
+    var $target = $('#' + targetId);
+    if (!$target.length) {
+      return;
+    }
+
+    var el = $target.get(0);
+    var current = $target.val() || '';
+    var start = (typeof el.selectionStart === 'number') ? el.selectionStart : current.length;
+    var end = (typeof el.selectionEnd === 'number') ? el.selectionEnd : current.length;
+
+    var updated = current.substring(0, start) + token + current.substring(end);
+    $target.val(updated).focus();
+    if (el.setSelectionRange) {
+      var pos = start + token.length;
+      el.setSelectionRange(pos, pos);
+    }
+  });
 })(jQuery);
