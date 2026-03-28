@@ -4,9 +4,10 @@
  * Plugin URI: https://ecarehost.com
  * Description: Production-ready SMS automation plugin for WordPress and WooCommerce using Ecare SMS API.
  * Version: 1.0.0
- * Author: Sakif Istiak | Ecare Host
+ * Author: Ecare Solution
  * Author URI: https://ecarehost.com
  * Text Domain: ecare-sms-pro
+ * Domain Path: /languages
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * License: GPL-2.0+
@@ -111,12 +112,13 @@ class Ecare_SMS_Pro {
 			'default_sender_id' => '',
 			'sms_type'          => 'plain',
 			'enable_logs'       => 1,
-			'enable_debug'      => 1,
+			'enable_debug'      => 0,
 			'wc_order_placed_enabled'    => 0,
 			'wc_order_placed_template'   => __( 'Hi {customer_name}, your order #{order_id} has been placed successfully. Total: {total}.', 'ecare-sms-pro' ),
 			'wc_status_changed_enabled'  => 0,
 			'wc_status_changed_template' => __( 'Hi {customer_name}, your order #{order_id} is now {order_status}.', 'ecare-sms-pro' ),
 			'wc_status_targets'          => array( 'processing', 'completed' ),
+			'wc_status_templates'        => array(),
 		);
 
 		$current = get_option( ECARE_SMS_PRO_OPTION_KEY, array() );

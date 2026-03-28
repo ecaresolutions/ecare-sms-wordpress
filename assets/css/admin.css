@@ -409,6 +409,32 @@
   margin-bottom: 6px;
 }
 
+.ecare-template-settings-shell {
+  max-width: 980px;
+}
+
+.ecare-template-section {
+  background: #fff;
+  border: 1px solid #d8deea;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(30, 41, 59, 0.05);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.ecare-template-section h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 20px;
+}
+
+.ecare-template-section > label {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
 @media (max-width: 782px) {
   .ecare-sms-pro-hero-left h2 {
     font-size: 20px;

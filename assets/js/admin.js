@@ -8,7 +8,9 @@
     }
 
     var cls = type === 'error' ? 'notice notice-error is-dismissible' : 'notice notice-success is-dismissible';
-    $holder.html('<div class="' + cls + '"><p>' + message + '</p></div>');
+    var $notice = $('<div/>').addClass(cls);
+    $('<p/>').text(message || '').appendTo($notice);
+    $holder.empty().append($notice);
   }
 
   $(document).on('submit', '#ecare-send-sms-form', function (e) {

@@ -59,6 +59,7 @@ class Ecare_SMS_Pro_Admin_Pages {
 		add_action( 'admin_menu', array( $this, 'register_menus' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_ecare_sms_pro_save_settings', array( $this, 'handle_save_settings' ) );
+		add_action( 'admin_post_ecare_sms_pro_save_templates', array( $this, 'handle_save_templates' ) );
 		add_action( 'admin_notices', array( $this, 'render_notices' ) );
 
 		add_action( 'wp_ajax_ecare_sms_pro_send_sms', array( $this, 'ajax_send_sms' ) );
@@ -90,6 +91,7 @@ class Ecare_SMS_Pro_Admin_Pages {
 		add_submenu_page( $this->menu->get_slug( 'send' ), __( 'Send SMS', 'ecare-sms-pro' ), __( 'Send SMS', 'ecare-sms-pro' ), 'manage_options', $this->menu->get_slug( 'send' ), array( $this, 'render_send_sms_page' ) );
 		add_submenu_page( $this->menu->get_slug( 'send' ), __( 'Logs', 'ecare-sms-pro' ), __( 'Logs', 'ecare-sms-pro' ), 'manage_options', $this->menu->get_slug( 'logs' ), array( $this, 'render_logs_page' ) );
 		add_submenu_page( $this->menu->get_slug( 'send' ), __( 'Settings', 'ecare-sms-pro' ), __( 'Settings', 'ecare-sms-pro' ), 'manage_options', $this->menu->get_slug( 'settings' ), array( $this, 'render_settings_page' ) );
+		add_submenu_page( $this->menu->get_slug( 'send' ), __( 'Template Settings', 'ecare-sms-pro' ), __( 'Template Settings', 'ecare-sms-pro' ), 'manage_options', $this->menu->get_slug( 'templates' ), array( $this, 'render_templates_page' ) );
 	}
 
 	/**
@@ -170,7 +172,7 @@ class Ecare_SMS_Pro_Admin_Pages {
 		echo '</section>';
 
 		echo '<div class="ecare-sms-pro-support-box">';
-		echo '<p><strong>' . esc_html__( 'Need help?', 'ecare-sms-pro' ) . '</strong> ' . esc_html__( 'WhatsApp Support:', 'ecare-sms-pro' ) . ' <a href="' . esc_url( 'https://wa.me/8801811699722' ) . '" target="_blank" rel="noopener noreferrer">01811699722</a></p>';
+		echo '<p><strong>' . esc_html__( 'Need help?', 'ecare-sms-pro' ) . '</strong> ' . esc_html__( 'WhatsApp Support:', 'ecare-sms-pro' ) . ' <a href="' . esc_url( 'https://wa.me/8801811699722' ) . '" target="_blank" rel="noopener noreferrer">01811699722</a> | ' . esc_html__( 'Email:', 'ecare-sms-pro' ) . ' <a href="' . esc_url( 'mailto:gocares@gmail.com' ) . '">gocares@gmail.com</a></p>';
 		echo '</div>';
 
 		if ( ! $is_api_ready ) {
@@ -405,86 +407,10 @@ class Ecare_SMS_Pro_Admin_Pages {
 		echo '</td></tr>';
 
 		echo '<tr><th scope="row">' . esc_html__( 'Enable Debug Mode', 'ecare-sms-pro' ) . '</th><td>';
-		echo '<label><input type="checkbox" name="enable_debug" value="1" ' . checked( isset( $settings['enable_debug'] ) ? (int) $settings['enable_debug'] : 1, 1, false ) . ' /> ' . esc_html__( 'Capture step-by-step request debug data.', 'ecare-sms-pro' ) . '</label>';
+		echo '<label><input type="checkbox" name="enable_debug" value="1" ' . checked( isset( $settings['enable_debug'] ) ? (int) $settings['enable_debug'] : 0, 1, false ) . ' /> ' . esc_html__( 'Capture step-by-step request debug data.', 'ecare-sms-pro' ) . '</label>';
 		echo '<p class="description">' . esc_html__( 'Debug file path: wp-content/uploads/ecare-sms-pro/debug.log', 'ecare-sms-pro' ) . '</p>';
 		echo '</td></tr>';
 
-		$woo_placeholders = array( '{site_name}', '{order_id}', '{order_number}', '{customer_name}', '{first_name}', '{last_name}', '{phone}', '{total}', '{order_status}', '{order_date}' );
-		$status_templates = isset( $settings['wc_status_templates'] ) && is_array( $settings['wc_status_templates'] ) ? $settings['wc_status_templates'] : array();
-
-		echo '<tr><th scope="row">' . esc_html__( 'Woo: Order Placed SMS', 'ecare-sms-pro' ) . '</th><td>';
-		echo '<label><input type="checkbox" name="wc_order_placed_enabled" value="1" ' . checked( isset( $settings['wc_order_placed_enabled'] ) ? (int) $settings['wc_order_placed_enabled'] : 0, 1, false ) . ' /> ' . esc_html__( 'Send SMS when a new WooCommerce order is placed.', 'ecare-sms-pro' ) . '</label>';
-		echo '<div class="ecare-template-box">';
-		echo '<p><label for="ecare_wc_order_preset"><strong>' . esc_html__( 'Template Preset', 'ecare-sms-pro' ) . '</strong></label><br />';
-		echo '<select id="ecare_wc_order_preset" class="ecare-template-preset" data-target="ecare_wc_order_placed_template"><option value="">' . esc_html__( 'Select a preset (optional)', 'ecare-sms-pro' ) . '</option>';
-		echo '<option value="' . esc_attr__( 'Hi {customer_name}, your order #{order_id} has been placed. Total: {total}.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Classic Confirmation', 'ecare-sms-pro' ) . '</option>';
-		echo '<option value="' . esc_attr__( 'Thanks {first_name}! Order #{order_number} is confirmed on {site_name}. We will update you soon.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Friendly Confirmation', 'ecare-sms-pro' ) . '</option>';
-		echo '<option value="' . esc_attr__( 'Order #{order_id} received. Amount: {total}. Date: {order_date}.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Short Format', 'ecare-sms-pro' ) . '</option>';
-		echo '</select></p>';
-		echo '<p><textarea id="ecare_wc_order_placed_template" name="wc_order_placed_template" class="large-text" rows="3">' . esc_textarea( isset( $settings['wc_order_placed_template'] ) ? (string) $settings['wc_order_placed_template'] : '' ) . '</textarea></p>';
-		echo '<div class="ecare-placeholder-wrap">';
-		foreach ( $woo_placeholders as $token ) {
-			echo '<button type="button" class="button button-small ecare-placeholder-btn" data-target="ecare_wc_order_placed_template" data-token="' . esc_attr( $token ) . '">' . esc_html( $token ) . '</button> ';
-		}
-		echo '</div>';
-		echo '<p class="description">' . esc_html__( 'Click placeholders to insert into the template.', 'ecare-sms-pro' ) . '</p>';
-		echo '</div>';
-		echo '</td></tr>';
-
-		echo '<tr><th scope="row">' . esc_html__( 'Woo: Status Change SMS', 'ecare-sms-pro' ) . '</th><td>';
-		echo '<label><input type="checkbox" name="wc_status_changed_enabled" value="1" ' . checked( isset( $settings['wc_status_changed_enabled'] ) ? (int) $settings['wc_status_changed_enabled'] : 0, 1, false ) . ' /> ' . esc_html__( 'Send SMS when selected order statuses are changed.', 'ecare-sms-pro' ) . '</label>';
-		echo '<div class="ecare-template-box">';
-		echo '<p><label for="ecare_wc_status_preset"><strong>' . esc_html__( 'Template Preset', 'ecare-sms-pro' ) . '</strong></label><br />';
-		echo '<select id="ecare_wc_status_preset" class="ecare-template-preset" data-target="ecare_wc_status_changed_template"><option value="">' . esc_html__( 'Select a preset (optional)', 'ecare-sms-pro' ) . '</option>';
-		echo '<option value="' . esc_attr__( 'Hi {customer_name}, your order #{order_id} is now {order_status}.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Standard Status Update', 'ecare-sms-pro' ) . '</option>';
-		echo '<option value="' . esc_attr__( 'Update from {site_name}: Order #{order_number} changed to {order_status}.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Brand Update', 'ecare-sms-pro' ) . '</option>';
-		echo '<option value="' . esc_attr__( 'Order #{order_id}: {order_status}. Thanks for staying with us.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Compact Update', 'ecare-sms-pro' ) . '</option>';
-		echo '</select></p>';
-		echo '<p><textarea id="ecare_wc_status_changed_template" name="wc_status_changed_template" class="large-text" rows="3">' . esc_textarea( isset( $settings['wc_status_changed_template'] ) ? (string) $settings['wc_status_changed_template'] : '' ) . '</textarea></p>';
-		echo '<div class="ecare-placeholder-wrap">';
-		foreach ( $woo_placeholders as $token ) {
-			echo '<button type="button" class="button button-small ecare-placeholder-btn" data-target="ecare_wc_status_changed_template" data-token="' . esc_attr( $token ) . '">' . esc_html( $token ) . '</button> ';
-		}
-		echo '</div>';
-		echo '<p class="description">' . esc_html__( 'Default template. You can override per status below.', 'ecare-sms-pro' ) . '</p>';
-		echo '</div>';
-
-		$saved_targets = isset( $settings['wc_status_targets'] ) && is_array( $settings['wc_status_targets'] ) ? array_map( 'sanitize_key', $settings['wc_status_targets'] ) : array();
-		if ( class_exists( 'WooCommerce' ) && function_exists( 'wc_get_order_statuses' ) ) {
-			$status_labels = wc_get_order_statuses();
-			echo '<fieldset><legend class="screen-reader-text">' . esc_html__( 'Target statuses', 'ecare-sms-pro' ) . '</legend>';
-			foreach ( $status_labels as $status_key => $status_label ) {
-				$clean_status = sanitize_key( str_replace( 'wc-', '', (string) $status_key ) );
-				echo '<label style="display:inline-block;margin-right:14px;">';
-				echo '<input type="checkbox" name="wc_status_targets[]" value="' . esc_attr( $clean_status ) . '" ' . checked( in_array( $clean_status, $saved_targets, true ), true, false ) . ' /> ';
-				echo esc_html( $status_label );
-				echo '</label>';
-			}
-			echo '</fieldset>';
-
-			echo '<div class="ecare-template-box ecare-status-template-box">';
-			echo '<p><strong>' . esc_html__( 'Per-status Custom Templates', 'ecare-sms-pro' ) . '</strong></p>';
-			echo '<p class="description">' . esc_html__( 'Optional: set custom template for specific status. If empty, default status template will be used.', 'ecare-sms-pro' ) . '</p>';
-			foreach ( $status_labels as $status_key => $status_label ) {
-				$clean_status   = sanitize_key( str_replace( 'wc-', '', (string) $status_key ) );
-				$field_id       = 'ecare_wc_status_template_' . $clean_status;
-				$current_tpl    = isset( $status_templates[ $clean_status ] ) ? (string) $status_templates[ $clean_status ] : '';
-				echo '<div class="ecare-status-template-row">';
-				echo '<label for="' . esc_attr( $field_id ) . '"><strong>' . esc_html( $status_label ) . '</strong></label>';
-				echo '<textarea id="' . esc_attr( $field_id ) . '" name="wc_status_templates[' . esc_attr( $clean_status ) . ']" class="large-text" rows="2">' . esc_textarea( $current_tpl ) . '</textarea>';
-				echo '<div class="ecare-placeholder-wrap">';
-				foreach ( $woo_placeholders as $token ) {
-					echo '<button type="button" class="button button-small ecare-placeholder-btn" data-target="' . esc_attr( $field_id ) . '" data-token="' . esc_attr( $token ) . '">' . esc_html( $token ) . '</button> ';
-				}
-				echo '</div>';
-				echo '</div>';
-			}
-			echo '</div>';
-		} else {
-			echo '<p class="description">' . esc_html__( 'WooCommerce is not active. Status options will appear after activation.', 'ecare-sms-pro' ) . '</p>';
-		}
-
-		echo '</td></tr>';
 		echo '</tbody></table>';
 
 		submit_button( __( 'Save Settings', 'ecare-sms-pro' ) );
@@ -506,44 +432,27 @@ class Ecare_SMS_Pro_Admin_Pages {
 		check_admin_referer( 'ecare_sms_pro_save_settings', 'ecare_sms_pro_settings_nonce' );
 
 		$current = get_option( ECARE_SMS_PRO_OPTION_KEY, array() );
-		$wc_status_targets = array();
-		if ( isset( $_POST['wc_status_targets'] ) && is_array( $_POST['wc_status_targets'] ) ) {
-			$wc_status_targets = array_values(
-				array_unique(
-					array_filter(
-						array_map(
-							'sanitize_key',
-							wp_unslash( $_POST['wc_status_targets'] )
-						)
-					)
-				)
-			);
+		$sms_type = isset( $_POST['sms_type'] ) ? sanitize_text_field( wp_unslash( $_POST['sms_type'] ) ) : 'plain';
+		if ( ! in_array( $sms_type, array( 'plain' ), true ) ) {
+			$sms_type = 'plain';
 		}
-		$wc_status_templates = array();
-		if ( isset( $_POST['wc_status_templates'] ) && is_array( $_POST['wc_status_templates'] ) ) {
-			$raw_status_templates = wp_unslash( $_POST['wc_status_templates'] );
-			foreach ( $raw_status_templates as $status_key => $template_text ) {
-				$clean_key  = sanitize_key( (string) $status_key );
-				$clean_text = sanitize_textarea_field( (string) $template_text );
-				if ( '' === $clean_key || '' === $clean_text ) {
-					continue;
-				}
-				$wc_status_templates[ $clean_key ] = $clean_text;
-			}
-		}
+
+		$default_sender = isset( $_POST['default_sender_id'] ) ? sanitize_text_field( wp_unslash( $_POST['default_sender_id'] ) ) : '';
+		$default_sender = preg_replace( '/[^A-Za-z0-9+]/', '', (string) $default_sender );
+		$default_sender = substr( (string) $default_sender, 0, 16 );
 
 		$updated = array(
 			'api_token'         => isset( $current['api_token'] ) ? $current['api_token'] : '',
-			'default_sender_id' => isset( $_POST['default_sender_id'] ) ? sanitize_text_field( wp_unslash( $_POST['default_sender_id'] ) ) : '',
-			'sms_type'          => isset( $_POST['sms_type'] ) ? sanitize_text_field( wp_unslash( $_POST['sms_type'] ) ) : 'plain',
+			'default_sender_id' => $default_sender,
+			'sms_type'          => $sms_type,
 			'enable_logs'       => isset( $_POST['enable_logs'] ) ? 1 : 0,
 			'enable_debug'      => isset( $_POST['enable_debug'] ) ? 1 : 0,
-			'wc_order_placed_enabled'    => isset( $_POST['wc_order_placed_enabled'] ) ? 1 : 0,
-			'wc_order_placed_template'   => isset( $_POST['wc_order_placed_template'] ) ? sanitize_textarea_field( wp_unslash( $_POST['wc_order_placed_template'] ) ) : '',
-			'wc_status_changed_enabled'  => isset( $_POST['wc_status_changed_enabled'] ) ? 1 : 0,
-			'wc_status_changed_template' => isset( $_POST['wc_status_changed_template'] ) ? sanitize_textarea_field( wp_unslash( $_POST['wc_status_changed_template'] ) ) : '',
-			'wc_status_targets'          => $wc_status_targets,
-			'wc_status_templates'        => $wc_status_templates,
+			'wc_order_placed_enabled'    => isset( $current['wc_order_placed_enabled'] ) ? (int) $current['wc_order_placed_enabled'] : 0,
+			'wc_order_placed_template'   => isset( $current['wc_order_placed_template'] ) ? (string) $current['wc_order_placed_template'] : '',
+			'wc_status_changed_enabled'  => isset( $current['wc_status_changed_enabled'] ) ? (int) $current['wc_status_changed_enabled'] : 0,
+			'wc_status_changed_template' => isset( $current['wc_status_changed_template'] ) ? (string) $current['wc_status_changed_template'] : '',
+			'wc_status_targets'          => isset( $current['wc_status_targets'] ) && is_array( $current['wc_status_targets'] ) ? $current['wc_status_targets'] : array(),
+			'wc_status_templates'        => isset( $current['wc_status_templates'] ) && is_array( $current['wc_status_templates'] ) ? $current['wc_status_templates'] : array(),
 		);
 
 		if ( isset( $_POST['api_token'] ) ) {
@@ -558,6 +467,161 @@ class Ecare_SMS_Pro_Admin_Pages {
 		$this->set_notice( __( 'Settings saved successfully.', 'ecare-sms-pro' ), 'success' );
 
 		wp_safe_redirect( admin_url( 'admin.php?page=' . $this->menu->get_slug( 'settings' ) ) );
+		exit;
+	}
+
+	/**
+	 * Render template settings page.
+	 *
+	 * @return void
+	 */
+	public function render_templates_page() {
+		$this->assert_capability();
+		$settings          = get_option( ECARE_SMS_PRO_OPTION_KEY, array() );
+		$woo_placeholders  = array( '{site_name}', '{order_id}', '{order_number}', '{customer_name}', '{first_name}', '{last_name}', '{phone}', '{total}', '{order_status}', '{order_date}' );
+		$status_templates  = isset( $settings['wc_status_templates'] ) && is_array( $settings['wc_status_templates'] ) ? $settings['wc_status_templates'] : array();
+		$saved_targets     = isset( $settings['wc_status_targets'] ) && is_array( $settings['wc_status_targets'] ) ? array_map( 'sanitize_key', $settings['wc_status_targets'] ) : array();
+
+		echo '<div class="wrap">';
+		echo '<h1>' . esc_html__( 'Template Settings', 'ecare-sms-pro' ) . '</h1>';
+		$this->render_tabs( 'templates' );
+		echo '<div class="ecare-template-settings-shell">';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		echo '<input type="hidden" name="action" value="ecare_sms_pro_save_templates" />';
+		wp_nonce_field( 'ecare_sms_pro_save_templates', 'ecare_sms_pro_templates_nonce' );
+
+		echo '<div class="ecare-template-section">';
+		echo '<h2>' . esc_html__( 'Order Placed Template', 'ecare-sms-pro' ) . '</h2>';
+		echo '<label><input type="checkbox" name="wc_order_placed_enabled" value="1" ' . checked( isset( $settings['wc_order_placed_enabled'] ) ? (int) $settings['wc_order_placed_enabled'] : 0, 1, false ) . ' /> ' . esc_html__( 'Enable SMS when order is placed', 'ecare-sms-pro' ) . '</label>';
+		echo '<div class="ecare-template-box">';
+		echo '<p><label for="ecare_wc_order_preset"><strong>' . esc_html__( 'Template Preset', 'ecare-sms-pro' ) . '</strong></label><br />';
+		echo '<select id="ecare_wc_order_preset" class="ecare-template-preset" data-target="ecare_wc_order_placed_template"><option value="">' . esc_html__( 'Select a preset (optional)', 'ecare-sms-pro' ) . '</option>';
+		echo '<option value="' . esc_attr__( 'Hi {customer_name}, your order #{order_id} has been placed. Total: {total}.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Classic Confirmation', 'ecare-sms-pro' ) . '</option>';
+		echo '<option value="' . esc_attr__( 'Thanks {first_name}! Order #{order_number} is confirmed on {site_name}. We will update you soon.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Friendly Confirmation', 'ecare-sms-pro' ) . '</option>';
+		echo '<option value="' . esc_attr__( 'Order #{order_id} received. Amount: {total}. Date: {order_date}.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Short Format', 'ecare-sms-pro' ) . '</option>';
+		echo '</select></p>';
+		echo '<textarea id="ecare_wc_order_placed_template" name="wc_order_placed_template" class="large-text" rows="3">' . esc_textarea( isset( $settings['wc_order_placed_template'] ) ? (string) $settings['wc_order_placed_template'] : '' ) . '</textarea>';
+		echo '<div class="ecare-placeholder-wrap">';
+		foreach ( $woo_placeholders as $token ) {
+			echo '<button type="button" class="button button-small ecare-placeholder-btn" data-target="ecare_wc_order_placed_template" data-token="' . esc_attr( $token ) . '">' . esc_html( $token ) . '</button> ';
+		}
+		echo '</div>';
+		echo '</div>';
+		echo '</div>';
+
+		echo '<div class="ecare-template-section">';
+		echo '<h2>' . esc_html__( 'Status Change Templates', 'ecare-sms-pro' ) . '</h2>';
+		echo '<label><input type="checkbox" name="wc_status_changed_enabled" value="1" ' . checked( isset( $settings['wc_status_changed_enabled'] ) ? (int) $settings['wc_status_changed_enabled'] : 0, 1, false ) . ' /> ' . esc_html__( 'Enable SMS when status changes', 'ecare-sms-pro' ) . '</label>';
+		echo '<div class="ecare-template-box">';
+		echo '<p><label for="ecare_wc_status_preset"><strong>' . esc_html__( 'Default Template Preset', 'ecare-sms-pro' ) . '</strong></label><br />';
+		echo '<select id="ecare_wc_status_preset" class="ecare-template-preset" data-target="ecare_wc_status_changed_template"><option value="">' . esc_html__( 'Select a preset (optional)', 'ecare-sms-pro' ) . '</option>';
+		echo '<option value="' . esc_attr__( 'Hi {customer_name}, your order #{order_id} is now {order_status}.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Standard Status Update', 'ecare-sms-pro' ) . '</option>';
+		echo '<option value="' . esc_attr__( 'Update from {site_name}: Order #{order_number} changed to {order_status}.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Brand Update', 'ecare-sms-pro' ) . '</option>';
+		echo '<option value="' . esc_attr__( 'Order #{order_id}: {order_status}. Thanks for staying with us.', 'ecare-sms-pro' ) . '">' . esc_html__( 'Compact Update', 'ecare-sms-pro' ) . '</option>';
+		echo '</select></p>';
+		echo '<textarea id="ecare_wc_status_changed_template" name="wc_status_changed_template" class="large-text" rows="3">' . esc_textarea( isset( $settings['wc_status_changed_template'] ) ? (string) $settings['wc_status_changed_template'] : '' ) . '</textarea>';
+		echo '<div class="ecare-placeholder-wrap">';
+		foreach ( $woo_placeholders as $token ) {
+			echo '<button type="button" class="button button-small ecare-placeholder-btn" data-target="ecare_wc_status_changed_template" data-token="' . esc_attr( $token ) . '">' . esc_html( $token ) . '</button> ';
+		}
+		echo '</div>';
+		echo '<p class="description">' . esc_html__( 'Default template will be used unless a custom per-status template is set.', 'ecare-sms-pro' ) . '</p>';
+		echo '</div>';
+
+		if ( class_exists( 'WooCommerce' ) && function_exists( 'wc_get_order_statuses' ) ) {
+			$status_labels = wc_get_order_statuses();
+			echo '<div class="ecare-template-box">';
+			echo '<p><strong>' . esc_html__( 'Target Statuses', 'ecare-sms-pro' ) . '</strong></p>';
+			echo '<fieldset>';
+			foreach ( $status_labels as $status_key => $status_label ) {
+				$clean_status = sanitize_key( str_replace( 'wc-', '', (string) $status_key ) );
+				echo '<label style="display:inline-block;margin-right:14px;">';
+				echo '<input type="checkbox" name="wc_status_targets[]" value="' . esc_attr( $clean_status ) . '" ' . checked( in_array( $clean_status, $saved_targets, true ), true, false ) . ' /> ';
+				echo esc_html( $status_label );
+				echo '</label>';
+			}
+			echo '</fieldset>';
+			echo '</div>';
+
+			echo '<div class="ecare-template-box ecare-status-template-box">';
+			echo '<p><strong>' . esc_html__( 'Per-status Custom Templates', 'ecare-sms-pro' ) . '</strong></p>';
+			foreach ( $status_labels as $status_key => $status_label ) {
+				$clean_status = sanitize_key( str_replace( 'wc-', '', (string) $status_key ) );
+				$field_id     = 'ecare_wc_status_template_' . $clean_status;
+				$current_tpl  = isset( $status_templates[ $clean_status ] ) ? (string) $status_templates[ $clean_status ] : '';
+
+				echo '<div class="ecare-status-template-row">';
+				echo '<label for="' . esc_attr( $field_id ) . '"><strong>' . esc_html( $status_label ) . '</strong></label>';
+				echo '<textarea id="' . esc_attr( $field_id ) . '" name="wc_status_templates[' . esc_attr( $clean_status ) . ']" class="large-text" rows="2">' . esc_textarea( $current_tpl ) . '</textarea>';
+				echo '<div class="ecare-placeholder-wrap">';
+				foreach ( $woo_placeholders as $token ) {
+					echo '<button type="button" class="button button-small ecare-placeholder-btn" data-target="' . esc_attr( $field_id ) . '" data-token="' . esc_attr( $token ) . '">' . esc_html( $token ) . '</button> ';
+				}
+				echo '</div>';
+				echo '</div>';
+			}
+			echo '</div>';
+		} else {
+			echo '<p class="description">' . esc_html__( 'WooCommerce is not active. Status options will appear after activation.', 'ecare-sms-pro' ) . '</p>';
+		}
+		echo '</div>';
+
+		submit_button( __( 'Save Template Settings', 'ecare-sms-pro' ) );
+		echo '</form>';
+		echo '</div>';
+		echo '</div>';
+	}
+
+	/**
+	 * Save template settings.
+	 *
+	 * @return void
+	 */
+	public function handle_save_templates() {
+		$this->assert_capability();
+		check_admin_referer( 'ecare_sms_pro_save_templates', 'ecare_sms_pro_templates_nonce' );
+
+		$current = get_option( ECARE_SMS_PRO_OPTION_KEY, array() );
+		$wc_status_targets = array();
+		if ( isset( $_POST['wc_status_targets'] ) && is_array( $_POST['wc_status_targets'] ) ) {
+			$wc_status_targets = array_values(
+				array_unique(
+					array_filter(
+						array_map(
+							'sanitize_key',
+							wp_unslash( $_POST['wc_status_targets'] )
+						)
+					)
+				)
+			);
+		}
+
+		$wc_status_templates = array();
+		if ( isset( $_POST['wc_status_templates'] ) && is_array( $_POST['wc_status_templates'] ) ) {
+			$raw_status_templates = wp_unslash( $_POST['wc_status_templates'] );
+			foreach ( $raw_status_templates as $status_key => $template_text ) {
+				$clean_key  = sanitize_key( (string) $status_key );
+				$clean_text = sanitize_textarea_field( (string) $template_text );
+				if ( '' === $clean_key || '' === $clean_text ) {
+					continue;
+				}
+				$wc_status_templates[ $clean_key ] = $clean_text;
+			}
+		}
+
+		$updated = $current;
+		$updated['wc_order_placed_enabled']    = isset( $_POST['wc_order_placed_enabled'] ) ? 1 : 0;
+		$updated['wc_order_placed_template']   = isset( $_POST['wc_order_placed_template'] ) ? sanitize_textarea_field( wp_unslash( $_POST['wc_order_placed_template'] ) ) : '';
+		$updated['wc_status_changed_enabled']  = isset( $_POST['wc_status_changed_enabled'] ) ? 1 : 0;
+		$updated['wc_status_changed_template'] = isset( $_POST['wc_status_changed_template'] ) ? sanitize_textarea_field( wp_unslash( $_POST['wc_status_changed_template'] ) ) : '';
+		$updated['wc_status_targets']          = $wc_status_targets;
+		$updated['wc_status_templates']        = $wc_status_templates;
+
+		$updated = apply_filters( 'ecare_sms_pro_settings_before_save', $updated, $current );
+		update_option( ECARE_SMS_PRO_OPTION_KEY, $updated );
+		$this->set_notice( __( 'Template settings saved successfully.', 'ecare-sms-pro' ), 'success' );
+
+		wp_safe_redirect( admin_url( 'admin.php?page=' . $this->menu->get_slug( 'templates' ) ) );
 		exit;
 	}
 
@@ -802,9 +866,30 @@ class Ecare_SMS_Pro_Admin_Pages {
 
 		$name = isset( $file['name'] ) ? sanitize_file_name( wp_unslash( $file['name'] ) ) : '';
 		$ext  = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
+		$size = isset( $file['size'] ) ? (int) $file['size'] : 0;
+
+		// Keep parsing cost predictable for large uploads in AJAX.
+		if ( $size > 2 * MB_IN_BYTES ) {
+			return new WP_Error( 'ecare_sms_file_too_large', __( 'File size must be 2MB or smaller.', 'ecare-sms-pro' ) );
+		}
 
 		if ( ! in_array( $ext, array( 'csv', 'txt', 'xlsx' ), true ) ) {
 			return new WP_Error( 'ecare_sms_file_type', __( 'Only CSV, TXT, and XLSX files are supported.', 'ecare-sms-pro' ) );
+		}
+
+		$validated = wp_check_filetype_and_ext( $file['tmp_name'], $name );
+		$mime      = isset( $validated['type'] ) ? (string) $validated['type'] : '';
+		$allowed   = array(
+			'text/plain',
+			'text/csv',
+			'text/comma-separated-values',
+			'application/csv',
+			'application/vnd.ms-excel',
+			'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+		);
+
+		if ( '' !== $mime && ! in_array( $mime, $allowed, true ) ) {
+			return new WP_Error( 'ecare_sms_file_mime', __( 'Uploaded file type is not allowed.', 'ecare-sms-pro' ) );
 		}
 
 		if ( 'xlsx' === $ext ) {
@@ -859,15 +944,14 @@ class Ecare_SMS_Pro_Admin_Pages {
 			return new WP_Error( 'ecare_sms_xlsx_sheet_missing', __( 'Sheet1 not found in XLSX file.', 'ecare-sms-pro' ) );
 		}
 
-		libxml_use_internal_errors( true );
-		$sheet = simplexml_load_string( $sheet_xml );
+		$sheet = $this->safe_simplexml_load_string( $sheet_xml );
 		if ( false === $sheet ) {
 			return new WP_Error( 'ecare_sms_xlsx_parse_failed', __( 'Could not parse worksheet from XLSX file.', 'ecare-sms-pro' ) );
 		}
 
 		$shared_strings = array();
 		if ( false !== $shared_xml ) {
-			$shared = simplexml_load_string( $shared_xml );
+			$shared = $this->safe_simplexml_load_string( $shared_xml );
 			if ( $shared && isset( $shared->si ) ) {
 				foreach ( $shared->si as $si ) {
 					$texts = $si->xpath( './/t' );
@@ -953,6 +1037,26 @@ class Ecare_SMS_Pro_Admin_Pages {
 	}
 
 	/**
+	 * Safely load XML string without network fetches.
+	 *
+	 * @param string $xml XML string.
+	 * @return SimpleXMLElement|false
+	 */
+	private function safe_simplexml_load_string( $xml ) {
+		if ( '' === trim( (string) $xml ) ) {
+			return false;
+		}
+
+		$use_errors = libxml_use_internal_errors( true );
+		$flags      = LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING;
+		$parsed     = simplexml_load_string( $xml, 'SimpleXMLElement', $flags );
+		libxml_clear_errors();
+		libxml_use_internal_errors( $use_errors );
+
+		return $parsed;
+	}
+
+	/**
 	 * Common AJAX security guard.
 	 *
 	 * @return void
@@ -1019,6 +1123,7 @@ class Ecare_SMS_Pro_Admin_Pages {
 			'send'     => __( 'Send SMS', 'ecare-sms-pro' ),
 			'logs'     => __( 'Logs', 'ecare-sms-pro' ),
 			'settings' => __( 'Settings', 'ecare-sms-pro' ),
+			'templates' => __( 'Template Settings', 'ecare-sms-pro' ),
 		);
 
 		echo '<h2 class="nav-tab-wrapper">';
