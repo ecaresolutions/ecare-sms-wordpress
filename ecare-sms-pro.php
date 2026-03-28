@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Ecare SMS
- * Plugin URI: https://ecarehost.com
+ * Plugin URI: https://github.com/ecaresolutions/ecare-sms-wordpress
  * Description: Production-ready SMS automation plugin for WordPress and WooCommerce using Ecare SMS API.
  * Version: 1.0.0
  * Author: Ecare Solution
